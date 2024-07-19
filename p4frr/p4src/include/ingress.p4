@@ -52,6 +52,7 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_deparser_t  ig_dprsr_md,
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
+    Register<bit<1>, PATH_INDEX_REG_SIZE> fork_switch_reg;
     action send(PortId_t port) {
         ig_tm_md.ucast_egress_port = port;
     }
@@ -59,6 +60,7 @@ control Ingress(
     action drop() {
         ig_dprsr_md.drop_ctl = 1;
     }
+    action lookup
 
     table ipv4_host {
         key = { hdr.ipv4.dst_addr : exact; }

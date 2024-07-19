@@ -3,6 +3,19 @@
 
 /* -*- Constants and Types -*- */
 
+#ifndef IPV4_HOST_SIZE
+#define IPV4_HOST_SIZE 65536
+#endif
+
+#ifndef IPV4_LPM_SIZE
+#define IPV4_LPM_SIZE 12288
+#endif
+
+// # of path up to 2^10(1024)
+#ifndef PATH_INDEX_SIZE
+#define PATH_INDEX_SIZE 10
+#endif
+
 typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 typedef bit<16> ether_type_t;
@@ -10,6 +23,12 @@ typedef bit<16> ether_type_t;
 const bit<16> ETHERTYPE_VLAN = 0x8100;
 const bit<16> ETHERTYPE_IPV4 = 0x0800;
 const bit<16> ETHERTYPE_IPV6 = 0x86DD;
+const bit<32> PATH_INDEX_REG_SIZE  = PATH_INDEX_SIZE;
+
+const PortId_t CPU_PORT = 64;
+
+const int IPV4_HOST_TABLE_SIZE = IPV4_HOST_SIZE;
+const int IPV4_LPM_TABLE_SIZE  = IPV4_LPM_SIZE;
 
 /* -*- Headers -*- */
 
