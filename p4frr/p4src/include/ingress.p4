@@ -52,7 +52,24 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_deparser_t  ig_dprsr_md,
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
-    Register<bit<1>, PATH_INDEX_REG_SIZE> fork_switch_reg;
+    /* Stateful Objects section */
+    Register<bit<32>, _>() fork_switch_reg;
+    RegisterAction<bit<32>, _, bit<32>> (fork_switch_reg) read_fork_switch_reg {
+        void apply(inout bit<32> value, out bit<32> read_value){
+            read_value = value;
+        }
+    }
+    RegisterAction<bit<32>, _, void> (fork_switch_reg) write_fork_switch_reg {
+        void apply(inout bit<32> value, out bit<32> result_value){
+            value = hdr.ipv4.src_addr;
+            result_value = value;
+        }
+    }
+
+    /* Action section */
+    action set_digest(){
+        ig_dprsr_md.digest_type = 1;
+    }
     action send(PortId_t port) {
         ig_tm_md.ucast_egress_port = port;
     }
@@ -60,8 +77,12 @@ control Ingress(
     action drop() {
         ig_dprsr_md.drop_ctl = 1;
     }
-    action lookup
 
+    action lookup_forwarding() {
+
+    }
+
+    /* Table section */
     table ipv4_host {
         key = { hdr.ipv4.dst_addr : exact; }
         actions = {
@@ -86,8 +107,12 @@ control Ingress(
         key = {  }
     }
 
-
+    /* Main Ingress Logic */
     apply {
+        bit<32> test_rv = write_fork_switch_reg.execute(0);
+        meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
+        meta.src_addr = test_rv;
+        set_digest();
         if (hdr.ipv4.isValid()) {
             if (ipv4_host.apply().miss) {
                 ipv4_lpm.apply();
@@ -104,6 +129,14 @@ control IngressDeparser(packet_out pkt,
     /* Intrinsic */
     in    ingress_intrinsic_metadata_for_deparser_t  ig_dprsr_md)
 {
+    Digest<digest_message_t>() idigest;
+
+    action debug_digest() {
+        idigest.pack({
+            meta.ingress_tstamp,
+
+        })
+    }
     // Output valid headers in the correct order
     apply {
         pkt.emit(hdr);

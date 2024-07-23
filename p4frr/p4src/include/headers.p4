@@ -63,6 +63,12 @@ header ipv4_h {
 
 /* -*- Struct -*- */
 
+/*  */
+struct digest_message_t {
+    bit<48> ingress_tstamp;
+    bit<32> src_addr;
+}
+
 /* Global Ingress Header */
 struct my_ingress_headers_t {
     ethernet_h   ethernet;
@@ -72,6 +78,8 @@ struct my_ingress_headers_t {
 
 /* Global Ingress metadata */
 struct my_ingress_metadata_t {
+    bit<48> ingress_tstamp;
+    bit<32> src_addr;
 }
 
 /* Global Egress Header */
