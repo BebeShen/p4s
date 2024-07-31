@@ -1,5 +1,6 @@
 #ifndef _HEADERS_P4_
 #define _HEADERS_P4_
+#endif
 
 /* -*- Constants and Types -*- */
 

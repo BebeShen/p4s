@@ -53,18 +53,18 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
     /* Stateful Objects section */
-    Register<bit<32>, _>() fork_switch_reg;
-    RegisterAction<bit<32>, _, bit<32>> (fork_switch_reg) read_fork_switch_reg {
+    Register<bit<32>, _>(4) fork_switch_reg;
+    RegisterAction<bit<32>, _, bit<32>> (fork_switch_reg) read_fork_switch_reg = {
         void apply(inout bit<32> value, out bit<32> read_value){
             read_value = value;
         }
-    }
-    RegisterAction<bit<32>, _, void> (fork_switch_reg) write_fork_switch_reg {
+    };
+    RegisterAction<bit<32>, _, bit<32>> (fork_switch_reg) write_fork_switch_reg = {
         void apply(inout bit<32> value, out bit<32> result_value){
             value = hdr.ipv4.src_addr;
             result_value = value;
         }
-    }
+    };
 
     /* Action section */
     action set_digest(){
@@ -99,21 +99,22 @@ control Ingress(
         size           = IPV4_LPM_TABLE_SIZE;
     }
 
-    table path {
-        key = {  }
-    }
+    // table path {
+    //     key = {  }
+    // }
 
-    table forwarding {
-        key = {  }
-    }
+    // table forwarding {
+    //     key = {  }
+    // }
 
     /* Main Ingress Logic */
     apply {
-        bit<32> test_rv = write_fork_switch_reg.execute(0);
+        bit<32> test_rv = 0;
+        test_rv = (bit<32>) write_fork_switch_reg.execute(0);
         meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
-        meta.src_addr = test_rv;
-        set_digest();
+        meta.src_addr = hdr.ipv4.src_addr;
         if (hdr.ipv4.isValid()) {
+            set_digest();   
             if (ipv4_host.apply().miss) {
                 ipv4_lpm.apply();
             }
@@ -131,14 +132,17 @@ control IngressDeparser(packet_out pkt,
 {
     Digest<digest_message_t>() idigest;
 
-    action debug_digest() {
-        idigest.pack({
-            meta.ingress_tstamp,
-
-        })
-    }
+    // action debug_digest() {
+        
+    // }
     // Output valid headers in the correct order
     apply {
+        if(hdr.ipv4.isValid()){
+            idigest.pack({
+                meta.ingress_tstamp,
+                meta.src_addr
+            });
+        }
         pkt.emit(hdr);
     }
 }
