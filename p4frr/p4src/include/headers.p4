@@ -68,6 +68,7 @@ header ipv4_h {
 struct digest_message_t {
     bit<48> ingress_tstamp;
     bit<32> src_addr;
+    bit<1> table_hit;
 }
 
 /* Global Ingress Header */
@@ -81,6 +82,7 @@ struct my_ingress_headers_t {
 struct my_ingress_metadata_t {
     bit<48> ingress_tstamp;
     bit<32> src_addr;
+    bit<1> table_hit;
 }
 
 /* Global Egress Header */

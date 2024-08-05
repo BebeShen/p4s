@@ -70,6 +70,14 @@ control Ingress(
     action set_digest(){
         ig_dprsr_md.digest_type = 1;
     }
+    action set_digest_success(){
+        set_digest();
+        meta.table_hit = 1;
+    }
+    action set_digest_fail(){
+        set_digest();
+        meta.table_hit = 0;
+    }
     action send(PortId_t port) {
         ig_tm_md.ucast_egress_port = port;
     }
@@ -93,15 +101,23 @@ control Ingress(
 
     table ipv4_lpm {
         key     = { hdr.ipv4.dst_addr : lpm; }
-        actions = { send; drop; }
+        actions = { 
+            send; drop; 
+        }
 
         default_action = send(CPU_PORT);
         size           = IPV4_LPM_TABLE_SIZE;
     }
 
-    // table path {
-    //     key = {  }
-    // }
+    table primary_path {
+        key = { 
+            hdr.ipv4.src_addr   :   exact;
+            hdr.ipv4.dst_addr   :   exact;    
+        }
+        actions = {
+            send; drop;
+        }
+    }
 
     // table forwarding {
     //     key = {  }
@@ -114,9 +130,12 @@ control Ingress(
         meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
         meta.src_addr = hdr.ipv4.src_addr;
         if (hdr.ipv4.isValid()) {
-            set_digest();   
-            if (ipv4_host.apply().miss) {
+            if (primary_path.apply().miss) {
+                set_digest_success();   
                 ipv4_lpm.apply();
+            }
+            else {
+                set_digest_fail();
             }
         }
     }
@@ -138,10 +157,13 @@ control IngressDeparser(packet_out pkt,
     // Output valid headers in the correct order
     apply {
         if(hdr.ipv4.isValid()){
-            idigest.pack({
-                meta.ingress_tstamp,
-                meta.src_addr
-            });
+            if(ig_dprsr_md.digest_type == 1){
+                idigest.pack({
+                    meta.ingress_tstamp,
+                    meta.src_addr,
+                    meta.table_hit
+                });
+            }
         }
         pkt.emit(hdr);
     }
