@@ -12,24 +12,30 @@
 #define IPV4_LPM_SIZE 12288
 #endif
 
-// # of path up to 2^10(1024)
-#ifndef PATH_INDEX_SIZE
-#define PATH_INDEX_SIZE 10
+// # of path up to 2^10
+#ifndef PRIMARY_PATH_SIZE
+#define PRIMARY_PATH_SIZE 1024
+#endif
+
+// 2^(PortId_t)
+#ifndef PORT_STATUS_SIZE
+#define PORT_STATUS_SIZE 512
 #endif
 
 typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 typedef bit<16> ether_type_t;
+typedef bit<1> status_t;
 
 const bit<16> ETHERTYPE_VLAN = 0x8100;
 const bit<16> ETHERTYPE_IPV4 = 0x0800;
 const bit<16> ETHERTYPE_IPV6 = 0x86DD;
-const bit<32> PATH_INDEX_REG_SIZE  = PATH_INDEX_SIZE;
 
 const PortId_t CPU_PORT = 64;
 
 const int IPV4_HOST_TABLE_SIZE = IPV4_HOST_SIZE;
 const int IPV4_LPM_TABLE_SIZE  = IPV4_LPM_SIZE;
+const int PRIMARY_PATH_TABLE_SIZE = PRIMARY_PATH_SIZE;
 
 /* -*- Headers -*- */
 
@@ -68,6 +74,7 @@ header ipv4_h {
 struct digest_message_t {
     bit<48> ingress_tstamp;
     bit<32> src_addr;
+    bit<32> dst_addr;
     bit<1> table_hit;
 }
 
@@ -82,6 +89,7 @@ struct my_ingress_headers_t {
 struct my_ingress_metadata_t {
     bit<48> ingress_tstamp;
     bit<32> src_addr;
+    bit<32> dst_addr;
     bit<1> table_hit;
 }
 

@@ -53,33 +53,34 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
     /* Stateful Objects section */
-    Register<bit<32>, _>(4) fork_switch_reg;
-    RegisterAction<bit<32>, _, bit<32>> (fork_switch_reg) read_fork_switch_reg = {
-        void apply(inout bit<32> value, out bit<32> read_value){
-            read_value = value;
-        }
-    };
-    RegisterAction<bit<32>, _, bit<32>> (fork_switch_reg) write_fork_switch_reg = {
-        void apply(inout bit<32> value, out bit<32> result_value){
-            value = hdr.ipv4.src_addr;
-            result_value = value;
+    Register<status_t, PortId_t>(PORT_STATUS_SIZE) port_status_register;
+    RegisterAction<status_t, PortId_t, status_t> (port_status_register) read_port_status = {
+        void apply(inout status_t register_data, out status_t read_value){
+            read_value = register_data;
         }
     };
 
     /* Action section */
+    action write_to_register() {
+        port_status_register.write(1, hdr.ipv4.src_addr);
+    }
     action set_digest(){
         ig_dprsr_md.digest_type = 1;
     }
-    action set_digest_success(){
+    action primary_path_table_hit(){
         set_digest();
         meta.table_hit = 1;
     }
-    action set_digest_fail(){
+    action primary_path_table_miss(){
         set_digest();
         meta.table_hit = 0;
     }
     action send(PortId_t port) {
         ig_tm_md.ucast_egress_port = port;
+    }
+    action bounce_back() {
+        ig_tm_md.ucast_egress_port = ig_intr_md.ingress_port;
+        ig_tm_md.bypass_egress = 1;
     }
 
     action drop() {
@@ -117,25 +118,35 @@ control Ingress(
         actions = {
             send; drop;
         }
+        
+        size           = PRIMARY_PATH_TABLE_SIZE;
     }
-
-    // table forwarding {
-    //     key = {  }
-    // }
 
     /* Main Ingress Logic */
     apply {
-        bit<32> test_rv = 0;
-        test_rv = (bit<32>) write_fork_switch_reg.execute(0);
-        meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
-        meta.src_addr = hdr.ipv4.src_addr;
         if (hdr.ipv4.isValid()) {
+
+            bit<1> port_status;
+            /* Get Ingress Timestamp */
+            meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
+            
             if (primary_path.apply().miss) {
-                set_digest_success();   
+                /* No rule for primary path (Control Plane not install rule YET) */
+                meta.src_addr = 2;
+                meta.dst_addr = 2;
+                primary_path_table_miss();   
+
                 ipv4_lpm.apply();
             }
             else {
-                set_digest_fail();
+
+                /* Check primary path port status */
+                port_status = read_port_status.execute(ig_tm_md.ucast_egress_port);
+
+                write_fork_switch_reg.execute(1);
+                meta.src_addr = hdr.ipv4.src_addr;
+                meta.dst_addr = hdr.ipv4.dst_addr;
+                primary_path_table_hit();
             }
         }
     }
@@ -161,6 +172,7 @@ control IngressDeparser(packet_out pkt,
                 idigest.pack({
                     meta.ingress_tstamp,
                     meta.src_addr,
+                    meta.dst_addr,
                     meta.table_hit
                 });
             }
