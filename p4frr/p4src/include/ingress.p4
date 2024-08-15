@@ -11,10 +11,24 @@ parser IngressParser(packet_in        pkt,
     state start {
         /* Mandatory code required by Tofino Architecture */
         pkt.extract(ig_intr_md);
+        transition select(ig_intr_md.resubmit_flag){
+            1: parse_resubmit;
+            0: parse_port_metadata;
+        }
+        // pkt.advance(PORT_METADATA_SIZE);
+        // transition parse_ethernet;
+    }
+
+    /* Parse Resubmit */
+    state parse_resubmit {
         pkt.advance(PORT_METADATA_SIZE);
         transition parse_ethernet;
     }
-
+    /* Parse Port Metadata */
+    state parse_port_metadata {
+        meta = port_metadata_unpack<my_ingress_metadata_t>(pkt);
+        transition parse_ethernet;
+    }
     /* Parse Ethernet */
     state parse_ethernet {
         pkt.extract(hdr.ethernet);
@@ -53,11 +67,11 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
     /* Variables */
-    cur_number_t cur;
-    flow_index_t flow;
-    status_t     port_st;
-    PortId_t     ig_port;
-    PortId_t     out_port;
+    cur_number_t cur = 0;
+    flow_index_t flow = 0;
+    status_t     port_st = 0;
+    PortId_t     ig_port = 0;
+    PortId_t     out_port = 0;
 
     /* Stateful Objects section */
     /* 
@@ -65,36 +79,36 @@ control Ingress(
         Index    : Flow
         Data     : Current DFS Number
     */
-    Register<cur_number_t, flow_index_t>(FLOW_SIZE, 0) cur_register;
-    RegisterAction<cur_number_t, flow_index_t, cur_number_t> (cur_register) read_cur = {
-        void apply(inout cur_number_t register_data, out cur_number_t read_value){
+    Register<bit<16>, flow_index_t>(FLOW_SIZE, 0) cur_register;
+    RegisterAction<bit<16>, flow_index_t, bit<16>> (cur_register) read_cur = {
+        void apply(inout bit<16> register_data, out bit<16> read_value){
             read_value = register_data;
         }
-    }
-    RegisterAction<cur_number_t, flow_index_t, cur_number_t> (cur_register) next_cur = {
-        void apply(inout cur_number_t register_data, out cur_number_t write_value){
+    };
+    RegisterAction<bit<16>, flow_index_t, bit<16>> (cur_register) next_cur = {
+        void apply(inout bit<16> register_data, out bit<16> write_value){
             register_data = register_data |+| 1;
             write_value = register_data;
         }
-    }
+    };
 
     /* 
         Name     : Ingress Port Register
         Index    : Flow
         Data     : Ingress Port, init to 512
     */
-    Register<ig_port_t, flow_index_t>(FLOW_SIZE, IG_PORT_INIT) ig_port_register;
-    RegisterAction<ig_port_t, flow_index_t, ig_port_t> (ig_port_register) read_ig_port = {
-        void apply(inout ig_port_t register_data, out ig_port_t read_value){
+    Register<bit<16>, flow_index_t>(FLOW_SIZE, IG_PORT_INIT) ig_port_register;
+    RegisterAction<bit<16>, flow_index_t, bit<16>> (ig_port_register) read_ig_port = {
+        void apply(inout bit<16> register_data, out bit<16> read_value){
             read_value = register_data;
         }
-    }
-    RegisterAction<ig_port_t, flow_index_t, ig_port_t> (ig_port_register) write_ig_port = {
-        void apply(inout ig_port_t register_data, out ig_port_t write_value){
-            register_data = ig_intr_md.ingress_port;
+    };
+    RegisterAction<bit<16>, flow_index_t, bit<16>> (ig_port_register) write_ig_port = {
+        void apply(inout bit<16> register_data, out bit<16> write_value){
+            register_data = (bit<16>)ig_intr_md.ingress_port;
             write_value = register_data;
         }
-    }
+    };
 
     /* Action section */
     action get_flow(flow_index_t f){
@@ -106,35 +120,19 @@ control Ingress(
     action get_port_status(status_t st){
         port_st = st;
     }
-    action recirculate(){
-        ig_tm_md.ucast_egress_port[8:7] = ig_intr_md.ingress_port[8:7];
-        ig_tm_md.ucast_egress_port[6:0] = RECIRCU_PORT;
-    }
-    action forwarding(){
-        ig_tm_md.ucast_egress_port = out_port;
-    }
-    action set_digest(){
-        ig_dprsr_md.digest_type = 1;
-    }
-    action primary_path_table_hit(){
-        set_digest();
-        meta.table_hit = 1;
-    }
-    action primary_path_table_miss(){
-        set_digest();
-        meta.table_hit = 0;
-    }
-    action send() {
-        ig_tm_md.ucast_egress_port = out_port;
-    }
-    action bounce_back() {
-        ig_tm_md.ucast_egress_port = ig_intr_md.ingress_port;
-        ig_tm_md.bypass_egress = 1;
-    }
-
-    action drop() {
-        ig_dprsr_md.drop_ctl = 1;
-    }
+    // action recirculate(){
+    //     ig_tm_md.ucast_egress_port[8:7] = ig_intr_md.ingress_port[8:7];
+    //     ig_tm_md.ucast_egress_port[6:0] = RECIRCU_PORT;
+    // }
+    // action send(){
+    //     ig_tm_md.ucast_egress_port = out_port;
+    // }
+    // action set_digest(){
+    //     ig_dprsr_md.digest_type = 1;
+    // }
+    // action drop() {
+    //     ig_dprsr_md.drop_ctl = 1;
+    // }
 
 
     /* Table section */
@@ -170,43 +168,42 @@ control Ingress(
         size    = PORT_STATUS_TALBE_SIZE;
     }
 
-    table ipv4_host {
-        key     = { hdr.ipv4.dst_addr : exact; }
-        actions = {
-            send; drop;
-        }
-        size = IPV4_HOST_TABLE_SIZE;
-    }
-
     /* Main Ingress Logic */
     apply {
+
+        // get Ingress Timestamp
+        // meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
+        meta.in_port = 0;
+        meta.out_port = 0;
+        meta.p_st = 0;
+        meta.table_hit = 0;
+
         if (hdr.ipv4.isValid()) {
             
-            set_digest();
+            // set_digest();
+            ig_dprsr_md.digest_type = 1;
 
             // get flow
             addr_2_flow.apply();
             // get cur
             read_cur.execute(flow);
-            // get Ingress Timestamp
-            meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
             
-            ig_port = read_ig_port(flow);
+            ig_port = (PortId_t)read_ig_port.execute(flow);
 
             // DEBUG
             meta.in_port = ig_port;
             
-            if(ig_port == IG_PORT_INIT){
+            if(ig_port == (bit<9>)IG_PORT_INIT){
                 write_ig_port.execute(flow);
             }
             
             /* Bounce Back or Recirculate packet received*/
             if(ig_intr_md.ingress_port != ig_port){
-                next_cur(flow);
+                next_cur.execute(flow);
             }
             /* Resubmit */
             if(ig_intr_md.resubmit_flag == 1){
-                next_cur(flow);
+                next_cur.execute(flow);
             }
             
             if(port_candi.apply().hit){
@@ -223,7 +220,9 @@ control Ingress(
                 if(port_st == PortStatus_t.DOWN){
                     if(ig_intr_md.resubmit_flag == 1){
                         // already be a resubmit packet
-                        recirculate();
+                        // recirculate();
+                        ig_tm_md.ucast_egress_port[8:7] = ig_intr_md.ingress_port[8:7];
+                        ig_tm_md.ucast_egress_port[6:0] = RECIRCU_PORT;
                     }
                     else{
                         // resubmit
@@ -236,8 +235,11 @@ control Ingress(
                 meta.table_hit = 0;
                 // Bounce Back
                 out_port = ig_port;
+                ig_tm_md.bypass_egress = 1;
+
+                ig_tm_md.ucast_egress_port = out_port;
             }
-            forwarding();
+            // send();
         }
     }
 }
@@ -252,17 +254,13 @@ control IngressDeparser(packet_out pkt,
 {
     Digest<digest_message_t>() idigest;
 
-    // action debug_digest() {
-        
-    // }
-    // Output valid headers in the correct order
+    Resubmit() resubmit;
     apply {
         if(hdr.ipv4.isValid()){
             if(ig_dprsr_md.digest_type == 1){
                 idigest.pack({
-                    meta.ingress_tstamp,
-                    meta.src_addr,
-                    meta.dst_addr,
+                    hdr.ipv4.src_addr,
+                    hdr.ipv4.dst_addr,
                     meta.p_st,
                     meta.in_port,
                     meta.out_port,
@@ -270,7 +268,6 @@ control IngressDeparser(packet_out pkt,
                 });
             }
         }
-        Resubmit() resubmit;
         if(ig_dprsr_md.resubmit_type == 1){
             resubmit.emit();
         }

@@ -9,7 +9,7 @@
 #endif
 
 #ifndef FLOW_WIDTH
-#define FLOW_WIDTH 10
+#define FLOW_WIDTH 5
 #endif
 
 // max # of flow : 1024
@@ -23,7 +23,7 @@
 #endif
 
 #ifndef PORT_CANDI_SIZE
-#define PORT_CANDI_SIZE 32768
+#define PORT_CANDI_SIZE 16384
 #endif
 
 typedef bit<48> mac_addr_t;
@@ -38,9 +38,9 @@ const bit<16> ETHERTYPE_VLAN = 0x8100;
 const bit<16> ETHERTYPE_IPV4 = 0x0800;
 const bit<16> ETHERTYPE_IPV6 = 0x86DD;
 const bit<7>  RECIRCU_PORT   = 7w68;
-const ig_port_t IG_PORT_INIT = 9w512;
+const bit<16> IG_PORT_INIT = 16w511;
 
-const PortId_t CPU_PORT = 64;
+// const PortId_t CPU_PORT = 64;
 
 enum bit<1> PortStatus_t {
     UP      = 1w1,
@@ -49,7 +49,6 @@ enum bit<1> PortStatus_t {
 
 /* Table Sizing */
 const int ADDR_2_FLOW_TABLE_SIZE = FLOW_SIZE;
-const int IPV4_HOST_TABLE_SIZE = IPV4_HOST_SIZE;
 const int PORT_CANDI_TALBE_SIZE = PORT_CANDI_SIZE;
 const int PORT_STATUS_TALBE_SIZE = PORT_SIZE;
 
@@ -88,9 +87,12 @@ header ipv4_h {
 
 /*  */
 struct digest_message_t {
-    bit<48> ingress_tstamp;
+    // bit<48> ingress_tstamp;
     bit<32> src_addr;
     bit<32> dst_addr;
+    status_t p_st;
+    PortId_t in_port;
+    PortId_t out_port;
     bit<1> table_hit;
 }
 
@@ -103,9 +105,9 @@ struct my_ingress_headers_t {
 
 /* Global Ingress metadata */
 struct my_ingress_metadata_t {
-    bit<48> ingress_tstamp;
-    bit<32> src_addr;
-    bit<32> dst_addr;
+    // bit<48> ingress_tstamp;
+    // bit<32> src_addr;
+    // bit<32> dst_addr;
     status_t p_st;
     PortId_t in_port;
     PortId_t out_port;

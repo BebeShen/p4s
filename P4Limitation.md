@@ -10,3 +10,4 @@
   - If one want to get real extern object data, need add `from_hw=True` in arguments when call API.
 - Tofino can only resubmit each packet once.
   - if one perform resubmit on a packet with `resubmit_flag == 1`, the packet will be dropped.
+- Each digest message can hold up to 47 bytes of data.
