@@ -178,6 +178,9 @@ control Ingress(
         meta.p_st = 0;
         meta.table_hit = 0;
 
+        if(ig_port == (bit<9>)IG_PORT_INIT){
+            write_ig_port.execute(flow);
+        }
         if (hdr.ipv4.isValid()) {
             
             // set_digest();
@@ -193,16 +196,13 @@ control Ingress(
             // DEBUG
             meta.in_port = ig_port;
             
-            if(ig_port == (bit<9>)IG_PORT_INIT){
-                write_ig_port.execute(flow);
-            }
             
             /* Bounce Back or Recirculate packet received*/
             if(ig_intr_md.ingress_port != ig_port){
                 next_cur.execute(flow);
             }
             /* Resubmit */
-            if(ig_intr_md.resubmit_flag == 1){
+            else if(ig_intr_md.resubmit_flag == 1){
                 next_cur.execute(flow);
             }
             

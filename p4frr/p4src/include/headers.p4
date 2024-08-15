@@ -4,26 +4,24 @@
 
 /* -*- Constants and Types -*- */
 
-#ifndef IPV4_HOST_SIZE
-#define IPV4_HOST_SIZE 65536
-#endif
-
 #ifndef FLOW_WIDTH
-#define FLOW_WIDTH 5
+#define FLOW_WIDTH 10
 #endif
 
 // max # of flow : 1024
 #ifndef FLOW_SIZE
-#define FLOW_SIZE 1 << FLOW_WIDTH
+// #define FLOW_SIZE 1 << FLOW_WIDTH
+#define FLOW_SIZE 32
 #endif
 
 // Port number range in 0 ~ 512
 #ifndef PORT_SIZE
-#define PORT_SIZE 1 << PORT_ID_WIDTH
+// #define PORT_SIZE 1 << PORT_ID_WIDTH
+#define PORT_SIZE 64
 #endif
 
 #ifndef PORT_CANDI_SIZE
-#define PORT_CANDI_SIZE 16384
+#define PORT_CANDI_SIZE 32
 #endif
 
 typedef bit<48> mac_addr_t;
