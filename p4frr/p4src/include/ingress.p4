@@ -203,7 +203,7 @@ control Ingress(
                 next_cur.execute(flow);
             }
             /* Resubmit */
-            else if(ig_intr_md.resubmit_flag == 1){
+            if(ig_intr_md.resubmit_flag == 1){
                 next_cur.execute(flow);
             }
             
