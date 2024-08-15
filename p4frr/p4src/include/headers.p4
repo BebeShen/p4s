@@ -17,11 +17,12 @@
 // Port number range in 0 ~ 512
 #ifndef PORT_SIZE
 // #define PORT_SIZE 1 << PORT_ID_WIDTH
-#define PORT_SIZE 64
+#define PORT_SIZE 256
 #endif
 
+// #(flow)*#(max num of port candi)
 #ifndef PORT_CANDI_SIZE
-#define PORT_CANDI_SIZE 32
+#define PORT_CANDI_SIZE 256
 #endif
 
 typedef bit<48> mac_addr_t;

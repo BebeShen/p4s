@@ -181,6 +181,7 @@ control Ingress(
         if(ig_port == (bit<9>)IG_PORT_INIT){
             write_ig_port.execute(flow);
         }
+
         if (hdr.ipv4.isValid()) {
             
             // set_digest();
