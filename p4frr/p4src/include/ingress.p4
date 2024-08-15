@@ -52,17 +52,66 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_deparser_t  ig_dprsr_md,
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
+    /* Variables */
+    cur_number_t cur;
+    flow_index_t flow;
+    status_t     port_st;
+    PortId_t     ig_port;
+    PortId_t     out_port;
+
     /* Stateful Objects section */
-    Register<status_t, PortId_t>(PORT_STATUS_SIZE) port_status_register;
-    RegisterAction<status_t, PortId_t, status_t> (port_status_register) read_port_status = {
-        void apply(inout status_t register_data, out status_t read_value){
+    /* 
+        Name     : Current DFS Number Register
+        Index    : Flow
+        Data     : Current DFS Number
+    */
+    Register<cur_number_t, flow_index_t>(FLOW_SIZE, 0) cur_register;
+    RegisterAction<cur_number_t, flow_index_t, cur_number_t> (cur_register) read_cur = {
+        void apply(inout cur_number_t register_data, out cur_number_t read_value){
             read_value = register_data;
         }
-    };
+    }
+    RegisterAction<cur_number_t, flow_index_t, cur_number_t> (cur_register) next_cur = {
+        void apply(inout cur_number_t register_data, out cur_number_t write_value){
+            register_data = register_data |+| 1;
+            write_value = register_data;
+        }
+    }
+
+    /* 
+        Name     : Ingress Port Register
+        Index    : Flow
+        Data     : Ingress Port, init to 512
+    */
+    Register<ig_port_t, flow_index_t>(FLOW_SIZE, IG_PORT_INIT) ig_port_register;
+    RegisterAction<ig_port_t, flow_index_t, ig_port_t> (ig_port_register) read_ig_port = {
+        void apply(inout ig_port_t register_data, out ig_port_t read_value){
+            read_value = register_data;
+        }
+    }
+    RegisterAction<ig_port_t, flow_index_t, ig_port_t> (ig_port_register) write_ig_port = {
+        void apply(inout ig_port_t register_data, out ig_port_t write_value){
+            register_data = ig_intr_md.ingress_port;
+            write_value = register_data;
+        }
+    }
 
     /* Action section */
-    action write_to_register() {
-        port_status_register.write(1, hdr.ipv4.src_addr);
+    action get_flow(flow_index_t f){
+        flow = f;
+    }
+    action get_port_candi(PortId_t p){
+        out_port = p;
+    }
+    action get_port_status(status_t st){
+        port_st = st;
+    }
+    action recirculate(){
+        ig_tm_md.ucast_egress_port[8:7] = ig_intr_md.ingress_port[8:7];
+        ig_tm_md.ucast_egress_port[6:0] = RECIRCU_PORT;
+    }
+    action forwarding(){
+        ig_tm_md.ucast_egress_port = out_port;
     }
     action set_digest(){
         ig_dprsr_md.digest_type = 1;
@@ -75,8 +124,8 @@ control Ingress(
         set_digest();
         meta.table_hit = 0;
     }
-    action send(PortId_t port) {
-        ig_tm_md.ucast_egress_port = port;
+    action send() {
+        ig_tm_md.ucast_egress_port = out_port;
     }
     action bounce_back() {
         ig_tm_md.ucast_egress_port = ig_intr_md.ingress_port;
@@ -87,67 +136,108 @@ control Ingress(
         ig_dprsr_md.drop_ctl = 1;
     }
 
-    action lookup_forwarding() {
-
-    }
 
     /* Table section */
+    table addr_2_flow {
+        key     = {
+            hdr.ipv4.src_addr   :   exact;
+            hdr.ipv4.dst_addr   :   exact;
+        }
+        actions = {
+            get_flow;
+        }
+        size    = ADDR_2_FLOW_TABLE_SIZE;
+    }
+
+    table port_candi {
+        key     = {
+            flow    :   exact;
+            cur     :   exact;
+        }
+        actions = {
+            get_port_candi;
+        }
+        size    = PORT_CANDI_TALBE_SIZE;
+    }
+
+    table port_status {
+        key     = {
+            out_port    :   exact;
+        }
+        actions = {
+            get_port_status;
+        }
+        size    = PORT_STATUS_TALBE_SIZE;
+    }
+
     table ipv4_host {
-        key = { hdr.ipv4.dst_addr : exact; }
+        key     = { hdr.ipv4.dst_addr : exact; }
         actions = {
             send; drop;
         }
         size = IPV4_HOST_TABLE_SIZE;
     }
 
-    table ipv4_lpm {
-        key     = { hdr.ipv4.dst_addr : lpm; }
-        actions = { 
-            send; drop; 
-        }
-
-        default_action = send(CPU_PORT);
-        size           = IPV4_LPM_TABLE_SIZE;
-    }
-
-    table primary_path {
-        key = { 
-            hdr.ipv4.src_addr   :   exact;
-            hdr.ipv4.dst_addr   :   exact;    
-        }
-        actions = {
-            send; drop;
-        }
-        
-        size           = PRIMARY_PATH_TABLE_SIZE;
-    }
-
     /* Main Ingress Logic */
     apply {
         if (hdr.ipv4.isValid()) {
+            
+            set_digest();
 
-            bit<1> port_status;
-            /* Get Ingress Timestamp */
+            // get flow
+            addr_2_flow.apply();
+            // get cur
+            read_cur.execute(flow);
+            // get Ingress Timestamp
             meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
             
-            if (primary_path.apply().miss) {
-                /* No rule for primary path (Control Plane not install rule YET) */
-                meta.src_addr = 2;
-                meta.dst_addr = 2;
-                primary_path_table_miss();   
+            ig_port = read_ig_port(flow);
 
-                ipv4_lpm.apply();
+            // DEBUG
+            meta.in_port = ig_port;
+            
+            if(ig_port == IG_PORT_INIT){
+                write_ig_port.execute(flow);
             }
-            else {
-
-                /* Check primary path port status */
-                port_status = read_port_status.execute(ig_tm_md.ucast_egress_port);
-
-                write_fork_switch_reg.execute(1);
-                meta.src_addr = hdr.ipv4.src_addr;
-                meta.dst_addr = hdr.ipv4.dst_addr;
-                primary_path_table_hit();
+            
+            /* Bounce Back or Recirculate packet received*/
+            if(ig_intr_md.ingress_port != ig_port){
+                next_cur(flow);
             }
+            /* Resubmit */
+            if(ig_intr_md.resubmit_flag == 1){
+                next_cur(flow);
+            }
+            
+            if(port_candi.apply().hit){
+
+                // DEBUG
+                meta.table_hit = 1;
+
+                // out port is one of port candidate
+                port_status.apply();
+                
+                // DEBUG
+                meta.p_st = port_st;
+
+                if(port_st == PortStatus_t.DOWN){
+                    if(ig_intr_md.resubmit_flag == 1){
+                        // already be a resubmit packet
+                        recirculate();
+                    }
+                    else{
+                        // resubmit
+                        ig_dprsr_md.resubmit_type = 1;
+                    }
+                }
+            }
+            else{
+                // DEBUG
+                meta.table_hit = 0;
+                // Bounce Back
+                out_port = ig_port;
+            }
+            forwarding();
         }
     }
 }
@@ -173,9 +263,16 @@ control IngressDeparser(packet_out pkt,
                     meta.ingress_tstamp,
                     meta.src_addr,
                     meta.dst_addr,
+                    meta.p_st,
+                    meta.in_port,
+                    meta.out_port,
                     meta.table_hit
                 });
             }
+        }
+        Resubmit() resubmit;
+        if(ig_dprsr_md.resubmit_type == 1){
+            resubmit.emit();
         }
         pkt.emit(hdr);
     }

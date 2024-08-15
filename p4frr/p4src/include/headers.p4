@@ -8,34 +8,50 @@
 #define IPV4_HOST_SIZE 65536
 #endif
 
-#ifndef IPV4_LPM_SIZE
-#define IPV4_LPM_SIZE 12288
+#ifndef FLOW_WIDTH
+#define FLOW_WIDTH 10
 #endif
 
-// # of path up to 2^10
-#ifndef PRIMARY_PATH_SIZE
-#define PRIMARY_PATH_SIZE 1024
+// max # of flow : 1024
+#ifndef FLOW_SIZE
+#define FLOW_SIZE 1 << FLOW_WIDTH
 #endif
 
-// 2^(PortId_t)
-#ifndef PORT_STATUS_SIZE
-#define PORT_STATUS_SIZE 512
+// Port number range in 0 ~ 512
+#ifndef PORT_SIZE
+#define PORT_SIZE 1 << PORT_ID_WIDTH
+#endif
+
+#ifndef PORT_CANDI_SIZE
+#define PORT_CANDI_SIZE 32768
 #endif
 
 typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 typedef bit<16> ether_type_t;
-typedef bit<1> status_t;
+typedef bit<1>  status_t;
+typedef bit<FLOW_WIDTH> flow_index_t;
+typedef bit<PORT_ID_WIDTH>  ig_port_t;
+typedef bit<PORT_ID_WIDTH>  cur_number_t;
 
 const bit<16> ETHERTYPE_VLAN = 0x8100;
 const bit<16> ETHERTYPE_IPV4 = 0x0800;
 const bit<16> ETHERTYPE_IPV6 = 0x86DD;
+const bit<7>  RECIRCU_PORT   = 7w68;
+const ig_port_t IG_PORT_INIT = 9w512;
 
 const PortId_t CPU_PORT = 64;
 
+enum bit<1> PortStatus_t {
+    UP      = 1w1,
+    DOWN    = 1w0
+}
+
+/* Table Sizing */
+const int ADDR_2_FLOW_TABLE_SIZE = FLOW_SIZE;
 const int IPV4_HOST_TABLE_SIZE = IPV4_HOST_SIZE;
-const int IPV4_LPM_TABLE_SIZE  = IPV4_LPM_SIZE;
-const int PRIMARY_PATH_TABLE_SIZE = PRIMARY_PATH_SIZE;
+const int PORT_CANDI_TALBE_SIZE = PORT_CANDI_SIZE;
+const int PORT_STATUS_TALBE_SIZE = PORT_SIZE;
 
 /* -*- Headers -*- */
 
@@ -90,6 +106,9 @@ struct my_ingress_metadata_t {
     bit<48> ingress_tstamp;
     bit<32> src_addr;
     bit<32> dst_addr;
+    status_t p_st;
+    PortId_t in_port;
+    PortId_t out_port;
     bit<1> table_hit;
 }
 
