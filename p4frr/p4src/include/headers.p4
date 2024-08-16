@@ -8,19 +8,19 @@
 #define FLOW_WIDTH 10
 #endif
 
-// max # of flow : 1024
+// max # of flow : 32
 #ifndef FLOW_SIZE
 // #define FLOW_SIZE 1 << FLOW_WIDTH
 #define FLOW_SIZE 32
 #endif
 
-// Port number range in 0 ~ 512
+// Port number range in 0 ~ 256
 #ifndef PORT_SIZE
 // #define PORT_SIZE 1 << PORT_ID_WIDTH
 #define PORT_SIZE 256
 #endif
 
-// #(flow)*#(max num of port candi)
+// #(flow)*#(max num of port candi) = 32*8
 #ifndef PORT_CANDI_SIZE
 #define PORT_CANDI_SIZE 256
 #endif
@@ -44,6 +44,10 @@ const bit<16> IG_PORT_INIT = 16w511;
 enum bit<1> PortStatus_t {
     UP      = 1w1,
     DOWN    = 1w0
+}
+enum bit<1> TableHitMiss_t {
+    HIT     = 1w1,
+    MISS    = 1w0
 }
 
 /* Table Sizing */
@@ -90,6 +94,7 @@ struct digest_message_t {
     bit<32> src_addr;
     bit<32> dst_addr;
     status_t p_st;
+    PortId_t fin_port;
     PortId_t in_port;
     PortId_t out_port;
     bit<1> table_hit;
@@ -108,6 +113,7 @@ struct my_ingress_metadata_t {
     // bit<32> src_addr;
     // bit<32> dst_addr;
     status_t p_st;
+    PortId_t fin_port;
     PortId_t in_port;
     PortId_t out_port;
     bit<1> table_hit;

@@ -11,24 +11,24 @@ parser IngressParser(packet_in        pkt,
     state start {
         /* Mandatory code required by Tofino Architecture */
         pkt.extract(ig_intr_md);
-        transition select(ig_intr_md.resubmit_flag){
-            1: parse_resubmit;
-            0: parse_port_metadata;
-        }
-        // pkt.advance(PORT_METADATA_SIZE);
-        // transition parse_ethernet;
-    }
-
-    /* Parse Resubmit */
-    state parse_resubmit {
+        // transition select(ig_intr_md.resubmit_flag){
+        //     1: parse_resubmit;
+        //     0: parse_port_metadata;
+        // }
         pkt.advance(PORT_METADATA_SIZE);
         transition parse_ethernet;
     }
-    /* Parse Port Metadata */
-    state parse_port_metadata {
-        meta = port_metadata_unpack<my_ingress_metadata_t>(pkt);
-        transition parse_ethernet;
-    }
+
+    // /* Parse Resubmit */
+    // state parse_resubmit {
+    //     pkt.advance(PORT_METADATA_SIZE);
+    //     transition parse_ethernet;
+    // }
+    // /* Parse Port Metadata */
+    // state parse_port_metadata {
+    //     meta = port_metadata_unpack<my_ingress_metadata_t>(pkt);
+    //     transition parse_ethernet;
+    // }
     /* Parse Ethernet */
     state parse_ethernet {
         pkt.extract(hdr.ethernet);
@@ -173,39 +173,40 @@ control Ingress(
 
         // get Ingress Timestamp
         // meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
-        meta.in_port = 0;
+        meta.fin_port = 0;
+        meta.in_port = ig_intr_md.ingress_port;
         meta.out_port = 0;
-        meta.p_st = 0;
-        meta.table_hit = 0;
+        meta.p_st = PortStatus_t.DOWN;
+        meta.table_hit = TableHitMiss_t.MISS;
 
         if(ig_port == (bit<9>)IG_PORT_INIT){
             write_ig_port.execute(flow);
+        }
+            
+        // get flow
+        addr_2_flow.apply();
+        // get cur
+        read_cur.execute(flow);
+
+        /* Bounce Back or Recirculate packet received*/
+        if(ig_intr_md.ingress_port != ig_port){
+            next_cur.execute(flow);
+        }
+        /* Resubmit */
+        if(ig_intr_md.resubmit_flag == 1){
+            next_cur.execute(flow);
         }
 
         if (hdr.ipv4.isValid()) {
             
             // set_digest();
             ig_dprsr_md.digest_type = 1;
-
-            // get flow
-            addr_2_flow.apply();
-            // get cur
-            read_cur.execute(flow);
             
             ig_port = (PortId_t)read_ig_port.execute(flow);
 
             // DEBUG
-            meta.in_port = ig_port;
+            meta.fin_port = ig_port;
             
-            
-            /* Bounce Back or Recirculate packet received*/
-            if(ig_intr_md.ingress_port != ig_port){
-                next_cur.execute(flow);
-            }
-            /* Resubmit */
-            if(ig_intr_md.resubmit_flag == 1){
-                next_cur.execute(flow);
-            }
             
             if(port_candi.apply().hit){
 
