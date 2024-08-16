@@ -100,8 +100,8 @@ control Ingress(
     Register<bit<16>, flow_index_t>(FLOW_SIZE, IG_PORT_INIT) ig_port_register;
     RegisterAction<bit<16>, flow_index_t, bit<16>> (ig_port_register) read_ig_port = {
         void apply(inout bit<16> register_data, out bit<16> read_value){
-            if(register_data == (bit<9>)IG_PORT_INIT){
-                register_data = ig_intr_md.ingress_port;
+            if(register_data == IG_PORT_INIT){
+                register_data = (bit<16>)ig_intr_md.ingress_port;
             }
             read_value = register_data;
         }
@@ -182,9 +182,9 @@ control Ingress(
         meta.table_hit = 0;
 
         // get flow
-        if(addr_2_flow.apply().hit()){
+        if(addr_2_flow.apply().hit){
             // get cur
-            cur = read_cur.execute(flow);
+            cur = (cur_number_t)read_cur.execute(flow);
             // get flow ingress port
             ig_port = (PortId_t)read_ig_port.execute(flow);
             // DEBUG
