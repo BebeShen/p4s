@@ -45,6 +45,10 @@ enum bit<1> PortStatus_t {
     UP      = 1w1,
     DOWN    = 1w0
 }
+enum bit<1> TableHitMiss_t {
+    HIT      = 1w1,
+    MISS     = 1w0
+}
 
 /* Table Sizing */
 const int ADDR_2_FLOW_TABLE_SIZE = FLOW_SIZE;

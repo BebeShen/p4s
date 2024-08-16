@@ -100,6 +100,9 @@ control Ingress(
     Register<bit<16>, flow_index_t>(FLOW_SIZE, IG_PORT_INIT) ig_port_register;
     RegisterAction<bit<16>, flow_index_t, bit<16>> (ig_port_register) read_ig_port = {
         void apply(inout bit<16> register_data, out bit<16> read_value){
+            if(register_data == (bit<9>)IG_PORT_INIT){
+                register_data = ig_intr_md.ingress_port;
+            }
             read_value = register_data;
         }
     };
@@ -178,26 +181,15 @@ control Ingress(
         meta.p_st = 0;
         meta.table_hit = 0;
 
-        if(ig_port == (bit<9>)IG_PORT_INIT){
-            write_ig_port.execute(flow);
-        }
-
-        if (hdr.ipv4.isValid()) {
-            
-            // set_digest();
-            ig_dprsr_md.digest_type = 1;
-
-            // get flow
-            addr_2_flow.apply();
+        // get flow
+        if(addr_2_flow.apply().hit()){
             // get cur
-            read_cur.execute(flow);
-            
+            cur = read_cur.execute(flow);
+            // get flow ingress port
             ig_port = (PortId_t)read_ig_port.execute(flow);
-
             // DEBUG
             meta.in_port = ig_port;
-            
-            
+
             /* Bounce Back or Recirculate packet received*/
             if(ig_intr_md.ingress_port != ig_port){
                 next_cur.execute(flow);
@@ -207,14 +199,14 @@ control Ingress(
                 next_cur.execute(flow);
             }
             
+            // set_digest();
+            ig_dprsr_md.digest_type = 1;
+        
             if(port_candi.apply().hit){
-
                 // DEBUG
-                meta.table_hit = 1;
-
+                meta.table_hit = TableHitMiss_t.HIT;
                 // out port is one of port candidate
                 port_status.apply();
-                
                 // DEBUG
                 meta.p_st = port_st;
 
@@ -233,14 +225,16 @@ control Ingress(
             }
             else{
                 // DEBUG
-                meta.table_hit = 0;
+                meta.table_hit = TableHitMiss_t.MISS;
                 // Bounce Back
                 out_port = ig_port;
                 ig_tm_md.bypass_egress = 1;
-
-                ig_tm_md.ucast_egress_port = out_port;
             }
-            // send();
+            ig_tm_md.ucast_egress_port = out_port;
+        }
+        else{
+            // drop
+            ig_dprsr_md.drop_ctl = 1;
         }
     }
 }
