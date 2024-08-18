@@ -192,18 +192,19 @@ control Ingress(
             // meta.in_port = ig_intr_md.ingress_port;
 
             /* Bounce Back or Recirculate packet received*/
+            // get cur
             if(ig_intr_md.ingress_port != ig_port){
                 meta.resubmit_f = 2;
-                next_cur.execute(flow);
+                cur = (cur_number_t)next_cur.execute(flow);
             }
             /* Resubmit */
             else if(ig_intr_md.resubmit_flag == 1){
                 meta.resubmit_f = 1;
-                next_cur.execute(flow);
+                cur = (cur_number_t)next_cur.execute(flow);
             }
-
-            // get cur
-            cur = (cur_number_t)read_cur.execute(flow);
+            else{
+                cur = (cur_number_t)read_cur.execute(flow);
+            }
             meta.cur = cur;
             
             // set_digest();
