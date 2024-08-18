@@ -93,6 +93,8 @@ struct digest_message_t {
     // bit<48> ingress_tstamp;
     bit<32> src_addr;
     bit<32> dst_addr;
+    bit<10>  flow;
+    bit<9>   cur;
     bit<1> resubmit_f;
     status_t p_st;
     PortId_t in_port;
@@ -112,6 +114,8 @@ struct my_ingress_metadata_t {
     // bit<48> ingress_tstamp;
     // bit<32> src_addr;
     // bit<32> dst_addr;
+    bit<10>  flow;
+    bit<9>   cur;
     bit<1>   resubmit_f;
     status_t p_st;
     PortId_t in_port;

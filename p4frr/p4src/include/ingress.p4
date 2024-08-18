@@ -184,8 +184,9 @@ control Ingress(
 
         // get flow
         if(addr_2_flow.apply().hit){
-            // get cur
-            cur = (cur_number_t)read_cur.execute(flow);
+
+            meta.flow = flow;
+
             // get flow ingress port
             ig_port = (PortId_t)read_ig_port.execute(flow);
             // DEBUG
@@ -200,6 +201,10 @@ control Ingress(
                 meta.resubmit_f = 1;
                 next_cur.execute(flow);
             }
+
+            // get cur
+            cur = (cur_number_t)read_cur.execute(flow);
+            meta.cur = cur;
             
             // set_digest();
             ig_dprsr_md.digest_type = 1;
@@ -259,6 +264,8 @@ control IngressDeparser(packet_out pkt,
                 idigest.pack({
                     hdr.ipv4.src_addr,
                     hdr.ipv4.dst_addr,
+                    meta.flow,
+                    meta.cur,
                     meta.resubmit_f,
                     meta.p_st,
                     meta.in_port,
