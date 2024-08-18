@@ -11,3 +11,6 @@
 - Tofino can only resubmit each packet once.
   - if one perform resubmit on a packet with `resubmit_flag == 1`, the packet will be dropped.
 - Each digest message can hold up to 47 bytes of data.
+- When using RegisterAction(specially store data), Need to typecast after calling that Action.
+  - e.g. `(PortId_t) store_data(index_t);`
+- When using Register, it seems to not able to have both write & read at the same pipe.
