@@ -109,15 +109,16 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
     
-    Register<bit<16>, flow_index_t>(512, 0) cur_register;
-    RegisterAction<bit<16>, flow_index_t, bit<16>> (cur_register) read_cur = {
-        void apply(inout bit<16> register_data, out bit<16> read_value){
+    Register<bit<32>, PortId_t>(512, 0) cur_register;
+    RegisterAction<bit<32>, _, bit<32>> (cur_register) read_cur = {
+        void apply(inout bit<32> register_data, out bit<32> read_value){
             read_value = register_data;
         }
     };
-    RegisterAction<bit<16>, flow_index_t, bit<16>> (cur_register) next_cur = {
-        void apply(inout bit<16> register_data, out bit<16> write_value){
-            register_data = register_data + 1;
+    RegisterAction<bit<32>, _, bit<32>> (cur_register) next_cur = {
+        void apply(inout bit<32> register_data, out bit<32> write_value){
+            // register_data = register_data + 1;
+            register_data = 2;
             write_value = register_data;
         }
     };
@@ -146,12 +147,13 @@ control Ingress(
     }
 
     apply {
+        bit<32> rv = 0;
+        rv = (bit<32>)next_cur.execute(1);
         if (hdr.ipv4.isValid()) {
-            next_cur.execute(1);
             if (ipv4_host.apply().miss) {
                 ipv4_lpm.apply();
             }
-            read_cur(1);
+            // rv = read_cur.execute(1);
         }
     }
 }
