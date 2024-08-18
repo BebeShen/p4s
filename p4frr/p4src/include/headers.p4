@@ -95,11 +95,10 @@ struct digest_message_t {
     bit<32> dst_addr;
     bit<10>  flow;
     bit<9>   cur;
-    bit<1> resubmit_f;
+    bit<2>   resubmit_f;
     status_t p_st;
-    PortId_t in_port;
+    // PortId_t in_port;
     PortId_t out_port;
-    bit<1> table_hit;
 }
 
 /* Global Ingress Header */
@@ -115,12 +114,11 @@ struct my_ingress_metadata_t {
     // bit<32> src_addr;
     // bit<32> dst_addr;
     bit<10>  flow;
-    bit<9>   cur;
-    bit<1>   resubmit_f;
+    bit<9>   cur;    
+    bit<2>   resubmit_f;
     status_t p_st;
-    PortId_t in_port;
+    // PortId_t in_port;
     PortId_t out_port;
-    bit<1> table_hit;
 }
 
 /* Global Egress Header */

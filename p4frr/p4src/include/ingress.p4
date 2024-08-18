@@ -79,7 +79,7 @@ control Ingress(
         Index    : Flow
         Data     : Current DFS Number
     */
-    Register<bit<16>, flow_index_t>(512, 0) cur_register;
+    Register<bit<16>, flow_index_t>(256, 0) cur_register;
     RegisterAction<bit<16>, flow_index_t, bit<16>> (cur_register) read_cur = {
         void apply(inout bit<16> register_data, out bit<16> read_value){
             read_value = register_data;
@@ -176,11 +176,10 @@ control Ingress(
 
         // get Ingress Timestamp
         // meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
-        meta.in_port = 0;
-        meta.out_port = 0;
+        // meta.in_port = 0;
         meta.resubmit_f = 0;
+        meta.out_port = 0;
         meta.p_st = 0;
-        meta.table_hit = 0;
 
         // get flow
         if(addr_2_flow.apply().hit){
@@ -190,10 +189,11 @@ control Ingress(
             // get flow ingress port
             ig_port = (PortId_t)read_ig_port.execute(flow);
             // DEBUG
-            meta.in_port = ig_intr_md.ingress_port;
+            // meta.in_port = ig_intr_md.ingress_port;
 
             /* Bounce Back or Recirculate packet received*/
             if(ig_intr_md.ingress_port != ig_port){
+                meta.resubmit_f = 2;
                 next_cur.execute(flow);
             }
             /* Resubmit */
@@ -210,8 +210,6 @@ control Ingress(
             ig_dprsr_md.digest_type = 1;
         
             if(port_candi.apply().hit){
-                // DEBUG
-                meta.table_hit = TableHitMiss_t.HIT;
                 // out port is one of port candidate
                 port_status.apply();
                 // DEBUG
@@ -231,8 +229,6 @@ control Ingress(
                 }
             }
             else{
-                // DEBUG
-                meta.table_hit = TableHitMiss_t.MISS;
                 // Bounce Back
                 out_port = ig_port;
                 ig_tm_md.bypass_egress = 1;
@@ -268,9 +264,8 @@ control IngressDeparser(packet_out pkt,
                     meta.cur,
                     meta.resubmit_f,
                     meta.p_st,
-                    meta.in_port,
-                    meta.out_port,
-                    meta.table_hit
+                    // meta.in_port,
+                    meta.out_port
                 });
             }
         }
