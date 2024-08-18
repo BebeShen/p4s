@@ -79,7 +79,7 @@ control Ingress(
         Index    : Flow
         Data     : Current DFS Number
     */
-    Register<bit<16>, flow_index_t>(FLOW_SIZE, 0) cur_register;
+    Register<bit<16>, flow_index_t>(512, 0) cur_register;
     RegisterAction<bit<16>, flow_index_t, bit<16>> (cur_register) read_cur = {
         void apply(inout bit<16> register_data, out bit<16> read_value){
             read_value = register_data;
@@ -178,6 +178,7 @@ control Ingress(
         // meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
         meta.in_port = 0;
         meta.out_port = 0;
+        meta.resubmit_f = 0;
         meta.p_st = 0;
         meta.table_hit = 0;
 
@@ -188,7 +189,7 @@ control Ingress(
             // get flow ingress port
             ig_port = (PortId_t)read_ig_port.execute(flow);
             // DEBUG
-            meta.in_port = ig_port;
+            meta.in_port = ig_intr_md.ingress_port;
 
             /* Bounce Back or Recirculate packet received*/
             if(ig_intr_md.ingress_port != ig_port){
@@ -196,6 +197,7 @@ control Ingress(
             }
             /* Resubmit */
             else if(ig_intr_md.resubmit_flag == 1){
+                meta.resubmit_f = 1;
                 next_cur.execute(flow);
             }
             
@@ -214,8 +216,8 @@ control Ingress(
                     if(ig_intr_md.resubmit_flag == 1){
                         // already be a resubmit packet
                         // recirculate();
-                        ig_tm_md.ucast_egress_port[8:7] = ig_intr_md.ingress_port[8:7];
-                        ig_tm_md.ucast_egress_port[6:0] = RECIRCU_PORT;
+                        out_port[8:7] = ig_intr_md.ingress_port[8:7];
+                        out_port[6:0] = RECIRCU_PORT;
                     }
                     else{
                         // resubmit
@@ -230,6 +232,7 @@ control Ingress(
                 out_port = ig_port;
                 ig_tm_md.bypass_egress = 1;
             }
+            meta.out_port = out_port;
             ig_tm_md.ucast_egress_port = out_port;
         }
         else{
@@ -256,6 +259,7 @@ control IngressDeparser(packet_out pkt,
                 idigest.pack({
                     hdr.ipv4.src_addr,
                     hdr.ipv4.dst_addr,
+                    meta.resubmit_f,
                     meta.p_st,
                     meta.in_port,
                     meta.out_port,
