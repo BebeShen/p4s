@@ -69,9 +69,11 @@ control Ingress(
     /* Variables */
     cur_number_t cur = 0;
     flow_index_t flow = 0;
+    PortId_t     pre_out_port = 0;
     status_t     port_st = 0;
     PortId_t     ig_port = 0;
     PortId_t     out_port = 0;
+    bit<2>       packet_type = 0;
 
     /* Stateful Objects section */
     /* 
@@ -95,7 +97,7 @@ control Ingress(
     /* 
         Name     : Ingress Port Register
         Index    : Flow
-        Data     : Ingress Port, init to 512
+        Data     : Ingress Port, init to 511
     */
     Register<bit<16>, flow_index_t>(FLOW_SIZE, IG_PORT_INIT) ig_port_register;
     RegisterAction<bit<16>, flow_index_t, bit<16>> (ig_port_register) read_ig_port = {
@@ -104,12 +106,6 @@ control Ingress(
                 register_data = (bit<16>)ig_intr_md.ingress_port;
             }
             read_value = register_data;
-        }
-    };
-    RegisterAction<bit<16>, flow_index_t, bit<16>> (ig_port_register) write_ig_port = {
-        void apply(inout bit<16> register_data, out bit<16> write_value){
-            register_data = (bit<16>)ig_intr_md.ingress_port;
-            write_value = register_data;
         }
     };
 
@@ -173,12 +169,14 @@ control Ingress(
 
     /* Main Ingress Logic */
     apply {
-
+        
         // get Ingress Timestamp
         // meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
         // meta.in_port = 0;
-        meta.resubmit_f = 0;
+        meta.pkt_type = 0;
+        meta.pkt_action = Pkt_t.NORMAL;
         meta.out_port = 0;
+        meta.in_port = (bit<8>)ig_intr_md.ingress_port;
         meta.p_st = 0;
 
         // get flow
@@ -186,47 +184,39 @@ control Ingress(
 
             meta.flow = flow;
 
+            // check_packet_type.apply(hdr, ig_intr_md, pkt_type);
+            // meta.pkt_type = pkt_type;
+
             // get flow ingress port
             ig_port = (PortId_t)read_ig_port.execute(flow);
             // DEBUG
             // meta.in_port = ig_intr_md.ingress_port;
 
-            /* Bounce Back or Recirculate packet received*/
-            // get cur
-            if(ig_intr_md.ingress_port != ig_port){
-                meta.resubmit_f = 2;
-                cur = (cur_number_t)next_cur.execute(flow);
-            }
-            /* Resubmit */
-            else if(ig_intr_md.resubmit_flag == 1){
-                meta.resubmit_f = 1;
+
+            /* Get cursor */
+            if(ig_intr_md.ingress_port[6:0] == RECIRCU_PORT){
+                meta.pkt_type = Pkt_t.RECIRCU;
                 cur = (cur_number_t)next_cur.execute(flow);
             }
             else{
                 cur = (cur_number_t)read_cur.execute(flow);
             }
-            meta.cur = cur;
+            meta.cur = (bit<8>)cur;
             
             // set_digest();
             ig_dprsr_md.digest_type = 1;
         
             if(port_candi.apply().hit){
-                // out port is one of port candidate
+                
+                // Get port candidate
                 port_status.apply();
                 // DEBUG
                 meta.p_st = port_st;
 
-                if(port_st == PortStatus_t.DOWN){
-                    if(ig_intr_md.resubmit_flag == 1){
-                        // already be a resubmit packet
-                        // recirculate();
-                        out_port[8:7] = ig_intr_md.ingress_port[8:7];
-                        out_port[6:0] = RECIRCU_PORT;
-                    }
-                    else{
-                        // resubmit
-                        ig_dprsr_md.resubmit_type = 1;
-                    }
+                if(port_st == PortStatus_t.DOWN || out_port == ig_intr_md.ingress_port){
+                    meta.pkt_action = Pkt_t.RECIRCU;
+                    out_port[8:7] = ig_intr_md.ingress_port[8:7];
+                    out_port[6:0] = RECIRCU_PORT;
                 }
             }
             else{
@@ -234,7 +224,7 @@ control Ingress(
                 out_port = ig_port;
                 ig_tm_md.bypass_egress = 1;
             }
-            meta.out_port = out_port;
+            meta.out_port = (bit<8>)out_port;
             ig_tm_md.ucast_egress_port = out_port;
         }
         else{
@@ -263,9 +253,10 @@ control IngressDeparser(packet_out pkt,
                     hdr.ipv4.dst_addr,
                     meta.flow,
                     meta.cur,
-                    meta.resubmit_f,
+                    meta.pkt_type,
+                    meta.pkt_action,
                     meta.p_st,
-                    // meta.in_port,
+                    meta.in_port,
                     meta.out_port
                 });
             }

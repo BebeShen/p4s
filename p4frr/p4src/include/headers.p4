@@ -29,7 +29,8 @@ typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 typedef bit<16> ether_type_t;
 typedef bit<1>  status_t;
-typedef bit<FLOW_WIDTH> flow_index_t;
+// typedef bit<FLOW_WIDTH> flow_index_t;
+typedef bit<5>  flow_index_t;
 typedef bit<PORT_ID_WIDTH>  ig_port_t;
 typedef bit<PORT_ID_WIDTH>  cur_number_t;
 
@@ -49,6 +50,13 @@ enum bit<1> TableHitMiss_t {
     HIT      = 1w1,
     MISS     = 1w0
 }
+enum bit<2> Pkt_t {
+    NORMAL      = 2w0,
+    RESUBMIT    = 2w1,
+    RECIRCU     = 2w2,
+    BOUNCEBACK  = 2w3
+}
+
 
 /* Table Sizing */
 const int ADDR_2_FLOW_TABLE_SIZE = FLOW_SIZE;
@@ -93,12 +101,13 @@ struct digest_message_t {
     // bit<48> ingress_tstamp;
     bit<32> src_addr;
     bit<32> dst_addr;
-    bit<10>  flow;
-    bit<9>   cur;
-    bit<2>   resubmit_f;
+    bit<5>  flow;
+    bit<8>   cur;
+    bit<2>   pkt_type;
+    bit<2>   pkt_action;
     status_t p_st;
-    // PortId_t in_port;
-    PortId_t out_port;
+    bit<8> in_port;
+    bit<8> out_port;
 }
 
 /* Global Ingress Header */
@@ -113,12 +122,13 @@ struct my_ingress_metadata_t {
     // bit<48> ingress_tstamp;
     // bit<32> src_addr;
     // bit<32> dst_addr;
-    bit<10>  flow;
-    bit<9>   cur;    
-    bit<2>   resubmit_f;
+    bit<5>   flow;
+    bit<8>   cur;    
+    bit<2>   pkt_type;
+    bit<2>   pkt_action;
     status_t p_st;
-    // PortId_t in_port;
-    PortId_t out_port;
+    bit<8> in_port;
+    bit<8> out_port;
 }
 
 /* Global Egress Header */
