@@ -8,19 +8,19 @@
 #define FLOW_WIDTH 10
 #endif
 
-// max # of flow : 32
+// max # of flow : 1024
 #ifndef FLOW_SIZE
 // #define FLOW_SIZE 1 << FLOW_WIDTH
 #define FLOW_SIZE 32
 #endif
 
-// Port number range in 0 ~ 256
+// Port number range in 0 ~ 512
 #ifndef PORT_SIZE
 // #define PORT_SIZE 1 << PORT_ID_WIDTH
 #define PORT_SIZE 256
 #endif
 
-// #(flow)*#(max num of port candi) = 32*8
+// #(flow)*#(max num of port candi)
 #ifndef PORT_CANDI_SIZE
 #define PORT_CANDI_SIZE 256
 #endif
@@ -98,10 +98,8 @@ header ipv4_h {
 
 /*  */
 struct digest_message_t {
-    // bit<48> ingress_tstamp;
     bit<32> src_addr;
     bit<32> dst_addr;
-    bit<5>  flow;
     bit<8>   cur;
     bit<2>   pkt_type;
     bit<2>   pkt_action;
@@ -119,7 +117,6 @@ struct my_ingress_headers_t {
 
 /* Global Ingress metadata */
 struct my_ingress_metadata_t {
-    bit<5>   flow;
     bit<8>   cur;    
     bit<2>   pkt_type;
     bit<2>   pkt_action;
