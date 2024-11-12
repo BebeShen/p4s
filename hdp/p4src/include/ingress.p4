@@ -67,6 +67,9 @@ control Ingress(
     inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
 {
     /* Variables */
+    
+    cur_number_t cur = 0;
+    flow_index_t flow = 0;
     status_t     port_st = 0;
     PortId_t     ig_port = 0;
     PortId_t     out_port = 0;
@@ -102,25 +105,11 @@ control Ingress(
     action get_port_status(status_t st){
         port_st = st;
     }
-    // action recirculate(){
-    //     ig_tm_md.ucast_egress_port[8:7] = ig_intr_md.ingress_port[8:7];
-    //     ig_tm_md.ucast_egress_port[6:0] = RECIRCU_PORT;
-    // }
-    // action send(){
-    //     ig_tm_md.ucast_egress_port = out_port;
-    // }
-    // action set_digest(){
-    //     ig_dprsr_md.digest_type = 1;
-    // }
-    // action drop() {
-    //     ig_dprsr_md.drop_ctl = 1;
-    // }
-
 
     /* Table section */
     table port_candi {
         key     = {
-            in_port        :   exact;
+            ig_port :   exact;
             cur     :   exact;
         }
         actions = {
@@ -143,13 +132,13 @@ control Ingress(
     apply {
 
         // get flow ingress port
-        ig_port = ig_intr_md.ingress_port;
-        meta.in_port = ig_port;
-        meta.out_port
+        ig_port = (PortId_t)ig_intr_md.ingress_port;
+        meta.in_port = (bit<8>)ig_port;
+        meta.out_port = 0;
 
-        // set_digest();
-        ig_dprsr_md.digest_type = 1;
-
+        if(hdr.ipv4.isValid()){
+            ig_dprsr_md.digest_type = 1;
+        }
         if(ig_intr_md.ingress_port[6:0] == RECIRCU_PORT){
             meta.pkt_type = Pkt_t.RECIRCU;
             cur = (cur_number_t)next_cur.execute(flow);
