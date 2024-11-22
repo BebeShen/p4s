@@ -1,7 +1,7 @@
 from collections import deque
 
-def find_paths(graph, start_nodes, end_nodes):
-    queue = deque([(node, [node]) for node in start_nodes])
+def find_paths(graph, start_nodes_set, end_nodes_set):
+    queue = deque([(node, [node]) for node in start_nodes_set])
     visited = set()
     paths = []
 
@@ -10,14 +10,14 @@ def find_paths(graph, start_nodes, end_nodes):
         visited.add(node)
 
         for neighbor in graph[node]:
-            if neighbor in end_nodes:
+            if neighbor in end_nodes_set:
                 paths.append(path + [neighbor])
             elif neighbor not in visited:
                 queue.append((neighbor, path + [neighbor]))
 
     return paths
 
-# Given graph(topo3)
+# Given graph(topo2)
 #
 #        B---D
 #       / \ / \
@@ -29,16 +29,16 @@ def find_paths(graph, start_nodes, end_nodes):
 
 graph = {
     'A': ['B', 'C'],
-    'B': ['A', 'D', 'E'],
-    'C': ['A', 'D', 'E'],
+    'B': ['A', 'C', 'D', 'E'],
+    'C': ['A', 'B', 'D', 'E'],
     'D': ['B', 'C', 'F'],
     'E': ['B', 'C', 'F'],
     'F': ['D', 'E']
 }
 
 
-start_nodes = ['B', 'C']
-end_nodes = ['D', 'E']
+start_nodes_set = ['B', 'C']
+end_nodes_set = ['D', 'E']
 
-paths = find_paths(graph, start_nodes, end_nodes)
+paths = find_paths(graph, start_nodes_set, end_nodes_set)
 print(paths)
