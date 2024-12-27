@@ -98,14 +98,14 @@ header ipv4_h {
 
 /*  */
 struct digest_message_t {
-    // bit<48> ingress_tstamp;
+    bit<48> ingress_tstamp;
     bit<32> src_addr;
-    bit<32> dst_addr;
+    // bit<32> dst_addr;
     bit<5>  flow;
     bit<8>   cur;
-    bit<2>   pkt_type;
-    bit<2>   pkt_action;
-    status_t p_st;
+    // bit<2>   pkt_type;
+    // bit<2>   pkt_action;
+    // status_t p_st;
     bit<8> in_port;
     bit<8> out_port;
 }
@@ -119,11 +119,12 @@ struct my_ingress_headers_t {
 
 /* Global Ingress metadata */
 struct my_ingress_metadata_t {
+    bit<48>  tstamp;
     bit<5>   flow;
     bit<8>   cur;    
-    bit<2>   pkt_type;
-    bit<2>   pkt_action;
-    status_t p_st;
+    // bit<2>   pkt_type;
+    // bit<2>   pkt_action;
+    // status_t p_st;
     bit<8> in_port;
     bit<8> out_port;
 }

@@ -43,6 +43,28 @@ def my_link_cb(dev_id, dev_port, up):
     else:
         print('Port {} is DOWN at {}bps'.format(port_name))
 
-bfrt.port.port.port_status_notif_cb_set(callback=my_link_cb)
+def my_learning_cb(dev_id, pipe_id, direction, parser_id, session, msg):
+    global p4
+    smac = p4.Ingress.smac
+    dmac = p4.Ingress.dmac
+    for digest in msg:
+        print(digest)
+        # vid      = digest["vid"]
+        # port     = digest["ingress_port"]
+        # mac_move = digest["mac_move"]
+        # mac      = digest["src_mac"]
+        # old_port = port ^ mac_move # Because mac_move = ingress_port ^ port
+        # print("VID=%d MAC=0x%012X Port=%d" % (vid, mac, port), end="")
+        # if mac_move != 0:
+        #     print("(Move from port=%d)" % old_port)
+        # else:
+        #     print("(New)")
+    #     smac.entry_with_smac_hit (vid=vid, src_addr=mac, port=port, is_static=False,
+    # ENTRY_TTL=60000).push()
+    #     dmac.entry_with_dmac_unicast(vid=vid, dst_addr=mac, port=port).push()
+    return 0
+p4.IngressDeparser.l2_digest.callback_register(my_learning_cb)
+
+# bfrt.port.port.port_status_notif_cb_set(callback=my_link_cb)
 
 bfrt.complete_operations()

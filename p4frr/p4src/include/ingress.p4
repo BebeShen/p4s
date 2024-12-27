@@ -158,12 +158,12 @@ control Ingress(
     apply {
         
         // get Ingress Timestamp
-        // meta.ingress_tstamp = ig_intr_md.ingress_mac_tstamp;
-        meta.pkt_type = 0;
-        meta.pkt_action = Pkt_t.NORMAL;
+        meta.tstamp = ig_intr_md.ingress_mac_tstamp;
+        // meta.pkt_type = 0;
+        // meta.pkt_action = Pkt_t.NORMAL;
         meta.out_port = 0;
         meta.in_port = (bit<8>)ig_intr_md.ingress_port;
-        meta.p_st = 0;
+        // meta.p_st = 0;
 
         // get flow
         if(addr_2_flow.apply().hit){
@@ -176,7 +176,7 @@ control Ingress(
 
             /* Get cursor */
             if(ig_intr_md.ingress_port[6:0] == RECIRCU_PORT){
-                meta.pkt_type = Pkt_t.RECIRCU;
+                // meta.pkt_type = Pkt_t.RECIRCU;
                 cur = (cur_number_t)next_cur.execute(flow);
             }
             else{
@@ -192,10 +192,10 @@ control Ingress(
                 // Get port candidate
                 port_status.apply();
                 // DEBUG
-                meta.p_st = port_st;
+                // meta.p_st = port_st;
 
                 if(port_st == PortStatus_t.DOWN || out_port == ig_intr_md.ingress_port){
-                    meta.pkt_action = Pkt_t.RECIRCU;
+                    // meta.pkt_action = Pkt_t.RECIRCU;
                     out_port[8:7] = ig_intr_md.ingress_port[8:7];
                     out_port[6:0] = RECIRCU_PORT;
                 }
@@ -230,13 +230,14 @@ control IngressDeparser(packet_out pkt,
         if(hdr.ipv4.isValid()){
             if(ig_dprsr_md.digest_type == 1){
                 idigest.pack({
+                    meta.tstamp,
                     hdr.ipv4.src_addr,
-                    hdr.ipv4.dst_addr,
+                    // hdr.ipv4.dst_addr,
                     meta.flow,
                     meta.cur,
-                    meta.pkt_type,
-                    meta.pkt_action,
-                    meta.p_st,
+                    // meta.pkt_type,
+                    // meta.pkt_action,
+                    // meta.p_st,
                     meta.in_port,
                     meta.out_port
                 });
